@@ -1,0 +1,69 @@
+---
+title: "R Notebook"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+```{r}
+if(!require("data.table")) install.packages("data.table")
+library("data.table")
+data<-fread("data.txt",header = TRUE)
+
+# Calculate the percentage of people who book the package
+dim(data)[1]
+sum(data$is_package==1)
+pack_per<-sum(data$is_package==1)/dim(data)[1]
+pack_per
+# Calculate the percentage of people who book the hotel only
+hotel_per<-length(data$hotel_id[data$is_package==0])/dim(data)[1]
+hotel_per
+# The percentage above sums up to 1, so we do histgorm directly
+if(!require("plotly")) install.packages("plotly")
+library("plotly")
+dat<-data.frame(product=factor(c("Package","Hotel only"),levels = c("Package","Hotel only")),percentage=c(pack_per,hotel_per))
+p <- ggplot(data=dat, aes(x=product, y=percentage, fill=product),width=0.3) +
+    geom_bar(stat="identity")
+p <- ggplotly(p)
+p
+
+
+# The percentage of the two product on different booking devices
+per_pac_mobile<-nrow(data[data$is_mobile==1&data$is_package==1,])/sum(data$is_mobile==1)
+per_hot_mobile<-nrow(data[data$is_mobile==1&data$is_package==0,])/sum(data$is_mobile==1)
+per_pac_web<-nrow(data[data$is_mobile==0&data$is_package==1,])/sum(data$is_mobile==0)
+per_hot_web<-nrow(data[data$is_mobile==0&data$is_package==0,])/sum(data$is_mobile==0)
+dat1<-data.frame(product=factor(c("Package","Package","Hotel only","Hotel only")), method=factor(c("On mobile","Website","On mobile","Website"),levels = c("On mobile","Website")),percent=c(per_pac_mobile,per_pac_web,per_hot_mobile,per_hot_web))
+p <- ggplot(data=dat1, aes(x=method, y=percent, fill=product)) +
+    geom_bar(stat="identity", position=position_dodge())
+p <- ggplotly(p)
+p
+```
+
+Loyalty user filter:
+
+```{r}
+if(!require("dplyr")) install.packages("dplyr")
+library(dplyr)
+loy_userid<-unique(data$user_id[duplicated(data$user_id)])
+loy_data<-data%>%filter(data$user_id%in%loy_userid)
+loy_data_book<-loy_data[loy_data$is_booking==1,]
+
+# see the booked loyal user's last 100 most number of booking
+tail(sort(table(loy_data_book$user_id)),100)
+a<-table(table(loy_data_book$user_id))
+plot(cumsum(a))
+plot(cumsum(a),xlim = c(0,20))
+# according to the plot, we decided to choose the normal booking range should be 3~15
+```
+
+```{r}
+length(sort(table(loy_data_book$user_id))[sort(table(loy_data_book$user_id))<=15&sort(table(loy_data_book$user_id))>=3])
+loy_userid<-names(sort(table(loy_data_book$user_id))[sort(table(loy_data_book$user_id))<=15&sort(table(loy_data_book$user_id))>=3])
+loy_data<-data%>%filter(data$user_id%in%loy_userid)
+
+# userid for customers who booked 1~2 times
+normal_userid<-names(sort(table(loy_data_book$user_id))[sort(table(loy_data_book$user_id))<3])
+click_userid<-data$user_id[data$is_booking==0]
+```
+
